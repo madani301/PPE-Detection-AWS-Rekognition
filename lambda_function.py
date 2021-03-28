@@ -17,13 +17,20 @@ from decimal import Decimal
 
 
 def lambda_handler(event, context):
+    # Create the required resources
     s3_client = boto3.client("s3")
     ppe_client = boto3.client("rekognition")
     sns_client = boto3.client("sns")
 
+    # Load the messages from the SQS Queue into JSON Objects
     for msg in event["Records"]:
         msg_payload = json.loads(msg["body"])
 
+        # If there are 'Records' in the messages; the messages are not empty
+        # Extract the bucket name and the image name
+        # Request AWS Rekognition PPE Detection to analyze images in the S3 Bucket with the extracted image names
+        # Set the Required Equipment Types to 'FACE_COVER' and 'HEAD_COVER'
+        # Set the Minimum Confidence
         if "Records" in msg_payload:
             bucket = msg_payload["Records"][0]["s3"]["bucket"]["name"]
             image = msg_payload["Records"][0]["s3"]["object"]["key"].replace("+", " ")
@@ -35,20 +42,28 @@ def lambda_handler(event, context):
                 },
             )
 
+            # Create an empty dictionary which will be used later to append the manipulated data
             results = []
 
+            # Access the body parts of all persons detected from AWS Rekognition PPE Detection
+            # Create a dictionary 'result' where the data will be constantly appended
             for person in response["Persons"]:
                 bp = person["BodyParts"]
                 id = person["Id"]
                 result = {"ID": id, "Details": []}
 
+                # Access the Equipment Detected of the response
                 for ed in bp:
                     name = ed["Name"]
                     ppe = ed["EquipmentDetections"]
 
+                    # Check if the Body Part is 'FACE" or 'HEAD'
+                    # Ignore other responses such as 'HAND'
+                    # Execute this block of code only if PPE Equipment were detected
                     if name == "FACE" or name == "HEAD":
                         if len(ppe) != 0:
 
+                            # Create variables for specific data required
                             for ppe_type in ppe:
                                 types = ppe_type["Type"]
                                 confidence = ppe_type["Confidence"]
@@ -59,6 +74,7 @@ def lambda_handler(event, context):
                                     ppe_type["CoversBodyPart"]["Confidence"]
                                 )
 
+                                # Set up the data format required to push into the DynamoDB Table
                                 person_details = {
                                     "Body Part": name,
                                     "Cover Type": types,
@@ -69,8 +85,12 @@ def lambda_handler(event, context):
                                     },
                                 }
 
+                                # Append the data for body parts where PPE Equipment were detected
                                 result["Details"].append(person_details)
 
+                        # If no PPE Equipment were detected for 'HEAD' or 'FACE',
+                        # Set the value to 'False' and the other data as 0
+                        # Append the data to the 'result' dictionary
                         else:
 
                             if name == "FACE":
@@ -99,12 +119,20 @@ def lambda_handler(event, context):
 
                             result["Details"].append(person_details)
 
+                # Append the data for all persons detected by AWS Rekognition PPE Detection
                 if len(result["Details"]) > 0:
                     results.append(result)
 
+                    # Create the resource for DynamoDB
+                    # Insert the 'results' dictionary into the table
                     table = boto3.resource("dynamodb").Table("PPE_Detection")
                     table.put_item(Item={"Image_Name": image, "Body": results})
 
+                # If results is empty, it means the responses were below the confidence level
+                # Or, the face nor head has been detected properly by AWS Rekognition PPE Detection
+                # Set the data as 'indeterminate', for it cannot be classified
+                # Append the data to the 'results' dictionary
+                # Create the DynamoDB resource and insert the dictionary 'results' into the table
                 if len(results) == 0:
                     person_details = {
                         "Body Part": "Indeterminate",
@@ -121,8 +149,13 @@ def lambda_handler(event, context):
                     table = boto3.resource("dynamodb").Table("PPE_Detection")
                     table.put_item(Item={"Image_Name": image, "Body": results})
 
+            # Create an empty dictionary which will contain only the data for persons without a 'FACE_COVER'
             res = []
 
+            # Access the required Keys in the 'results' dictionary
+            # Check if the body part is 'FACE' and the Equipment Detected is 'FACE_COVER'
+            # Append the result to the 'res' dictionary
+            # If the value 'CoversBodyPart' is 'False' or 'Indeterminate', send an SMS to the specified number
             for items in results:
                 details = items["Details"]
 
