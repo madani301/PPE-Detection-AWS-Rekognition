@@ -1,3 +1,16 @@
+#!/usr/local/bin/python3
+
+"""
+
+This script was created by Madani Napaul. 
+
+The 'deploy.py' script zips the 'lambda_function.py' and attaches the code to
+the function's (cpd-lambda-s1903342) 'lambda_handler' function.
+
+The script uses the subprocess library which allows Python to run CLI commands. 
+
+"""
+# Import the required libraries
 import json
 import boto3
 from decimal import Decimal
