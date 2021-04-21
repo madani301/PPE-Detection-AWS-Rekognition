@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Id": "arn:aws:sqs:eu-west-2:290644667118:cpd-sqs-s1903342",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "s3.amazonaws.com"
+      },
+      "Action": "SQS:SendMessage",
+      "Resource": "arn:aws:sqs:eu-west-2:290644667118:cpd-sqs-s1903342",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceAccount": "290644667118"
+        },
+        "Bool": {
+          "aws:SecureTransport": "true"
+        },
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:s3:*:*:cpd-s3-s1903342"
+        }
+      }
+    }
+  ]
+}

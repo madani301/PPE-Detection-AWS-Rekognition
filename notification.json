@@ -1,0 +1,7 @@
+{
+  "QueueConfiguration": {
+    "Id": "s3-event-s1903342",
+    "Event": "s3:ObjectCreated:Put",
+    "Queue": "arn:aws:sqs:eu-west-2:290644667118:cpd-sqs-s1903342"
+  }
+}
